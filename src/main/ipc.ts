@@ -1,8 +1,14 @@
-import { ipcMain, dialog, Notification, BrowserWindow } from 'electron';
+import { ipcMain, dialog, Notification, BrowserWindow, shell } from 'electron';
 import { IPC_CHANNELS, SUPPORTED_EXTENSIONS } from '../shared/types';
 import type { ConversionSettings, FileInfo } from '../shared/types';
 import { convertToWmv, cancelConversion } from './ffmpeg';
 import { getSettings, saveSettings } from './store';
+
+// メインウィンドウを取得する（フォーカスに依存しない）
+function getMainWindow(): BrowserWindow | null {
+  const windows = BrowserWindow.getAllWindows();
+  return windows.length > 0 ? windows[0] : null;
+}
 
 export function setupIpcHandlers() {
   // ファイル選択ダイアログ
@@ -41,7 +47,7 @@ export function setupIpcHandlers() {
   ipcMain.handle(
     IPC_CHANNELS.START_CONVERSION,
     async (_event, files: FileInfo[], outputDir: string, settings: ConversionSettings) => {
-      const window = BrowserWindow.getFocusedWindow();
+      const window = getMainWindow();
 
       for (const file of files) {
         try {
@@ -62,6 +68,15 @@ export function setupIpcHandlers() {
               title: '変換完了',
               body: `${file.name} の変換が完了しました`,
             }).show();
+          }
+
+          // 元ファイルをゴミ箱に移動
+          if (settings.moveToTrashAfterConversion && result.success) {
+            try {
+              await shell.trashItem(file.path);
+            } catch (trashError) {
+              console.error('元ファイルのゴミ箱移動に失敗しました:', trashError);
+            }
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : '不明なエラーが発生しました';

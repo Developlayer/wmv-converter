@@ -1,6 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC_CHANNELS } from '../shared/types';
-import type { ConversionSettings, FileInfo, ProgressInfo, ConversionResult } from '../shared/types';
+
+// IPC チャンネル名（外部インポートを避けるため直接定義）
+const IPC_CHANNELS = {
+  SELECT_FILES: 'select-files',
+  SELECT_OUTPUT_DIR: 'select-output-dir',
+  START_CONVERSION: 'start-conversion',
+  CANCEL_CONVERSION: 'cancel-conversion',
+  CONVERSION_PROGRESS: 'conversion-progress',
+  CONVERSION_COMPLETE: 'conversion-complete',
+  CONVERSION_ERROR: 'conversion-error',
+  GET_SETTINGS: 'get-settings',
+  SAVE_SETTINGS: 'save-settings',
+} as const;
 
 // レンダラープロセスに公開するAPI
 const electronAPI = {
@@ -15,7 +26,7 @@ const electronAPI = {
   },
 
   // 変換開始
-  startConversion: (files: FileInfo[], outputDir: string, settings: ConversionSettings): Promise<void> => {
+  startConversion: (files: unknown[], outputDir: string, settings: unknown): Promise<void> => {
     return ipcRenderer.invoke(IPC_CHANNELS.START_CONVERSION, files, outputDir, settings);
   },
 
@@ -25,25 +36,25 @@ const electronAPI = {
   },
 
   // 設定取得
-  getSettings: (): Promise<ConversionSettings> => {
+  getSettings: (): Promise<unknown> => {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_SETTINGS);
   },
 
   // 設定保存
-  saveSettings: (settings: ConversionSettings): Promise<void> => {
+  saveSettings: (settings: unknown): Promise<void> => {
     return ipcRenderer.invoke(IPC_CHANNELS.SAVE_SETTINGS, settings);
   },
 
   // 進捗イベントリスナー
-  onProgress: (callback: (progress: ProgressInfo) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, progress: ProgressInfo) => callback(progress);
+  onProgress: (callback: (progress: unknown) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, progress: unknown) => callback(progress);
     ipcRenderer.on(IPC_CHANNELS.CONVERSION_PROGRESS, listener);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.CONVERSION_PROGRESS, listener);
   },
 
   // 変換完了イベントリスナー
-  onComplete: (callback: (result: ConversionResult) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, result: ConversionResult) => callback(result);
+  onComplete: (callback: (result: unknown) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, result: unknown) => callback(result);
     ipcRenderer.on(IPC_CHANNELS.CONVERSION_COMPLETE, listener);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.CONVERSION_COMPLETE, listener);
   },

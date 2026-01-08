@@ -4,14 +4,55 @@ import * as fs from 'fs';
 import { app } from 'electron';
 import type { ConversionSettings, FileInfo, ConversionResult } from '../shared/types';
 
-let currentProcess: ChildProcess | null = null;
-let isCancelled = false;
+// 変換状態を管理するクラス
+class ConversionManager {
+  private currentProcess: ChildProcess | null = null;
+  private isCancelled = false;
+  private isConverting = false;
+
+  // 現在のプロセスを設定
+  setProcess(proc: ChildProcess | null): void {
+    this.currentProcess = proc;
+  }
+
+  // 変換開始時の初期化
+  startConversion(): void {
+    this.isCancelled = false;
+    this.isConverting = true;
+  }
+
+  // 変換終了
+  endConversion(): void {
+    this.currentProcess = null;
+    this.isConverting = false;
+  }
+
+  // キャンセルされたかどうか
+  get cancelled(): boolean {
+    return this.isCancelled;
+  }
+
+  // 変換中かどうか
+  get converting(): boolean {
+    return this.isConverting;
+  }
+
+  // キャンセル実行
+  cancel(): void {
+    this.isCancelled = true;
+    if (this.currentProcess) {
+      this.currentProcess.kill('SIGTERM');
+    }
+  }
+}
+
+const conversionManager = new ConversionManager();
+let ffmpegChecked = false;
 
 // ffmpegバイナリのパスを取得
 function getFFmpegPath(): string {
   const isDev = !app.isPackaged;
   const platform = process.platform;
-  const arch = process.arch;
 
   let ffmpegName: string;
 
@@ -29,6 +70,37 @@ function getFFmpegPath(): string {
   } else {
     return path.join(process.resourcesPath, ffmpegName);
   }
+}
+
+// ffmpegバイナリの存在と実行権限を確認
+function ensureFFmpegExecutable(): void {
+  if (ffmpegChecked) return;
+
+  const ffmpegPath = getFFmpegPath();
+
+  // ファイルの存在確認
+  if (!fs.existsSync(ffmpegPath)) {
+    throw new Error(`ffmpegバイナリが見つかりません: ${ffmpegPath}`);
+  }
+
+  // macOSの場合、実行権限を確認・設定
+  if (process.platform === 'darwin') {
+    try {
+      const stats = fs.statSync(ffmpegPath);
+      const isExecutable = (stats.mode & fs.constants.S_IXUSR) !== 0;
+
+      if (!isExecutable) {
+        // 実行権限を付与 (chmod +x)
+        fs.chmodSync(ffmpegPath, stats.mode | fs.constants.S_IXUSR | fs.constants.S_IXGRP | fs.constants.S_IXOTH);
+        console.log('ffmpegに実行権限を付与しました');
+      }
+    } catch (error) {
+      console.error('ffmpegの実行権限設定に失敗しました:', error);
+      throw new Error('ffmpegの実行権限を設定できませんでした。アプリを再インストールしてください。');
+    }
+  }
+
+  ffmpegChecked = true;
 }
 
 // 出力ファイルパスを生成
@@ -54,14 +126,20 @@ interface ProgressCallback {
 }
 
 function parseProgress(stderr: string, duration: number | null): ProgressCallback | null {
-  // 時間情報を抽出 (time=00:01:23.45)
-  const timeMatch = stderr.match(/time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})/);
-  if (!timeMatch) return null;
+  // 時間情報を抽出 (time=00:01:23.45) - 最新のマッチを取得
+  const timeMatches = stderr.matchAll(/time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})/g);
+  let lastMatch: RegExpMatchArray | null = null;
 
-  const hours = parseInt(timeMatch[1], 10);
-  const minutes = parseInt(timeMatch[2], 10);
-  const seconds = parseInt(timeMatch[3], 10);
-  const centiseconds = parseInt(timeMatch[4], 10);
+  for (const match of timeMatches) {
+    lastMatch = match;
+  }
+
+  if (!lastMatch) return null;
+
+  const hours = parseInt(lastMatch[1], 10);
+  const minutes = parseInt(lastMatch[2], 10);
+  const seconds = parseInt(lastMatch[3], 10);
+  const centiseconds = parseInt(lastMatch[4], 10);
 
   const currentSeconds = hours * 3600 + minutes * 60 + seconds + centiseconds / 100;
   const currentTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
@@ -121,7 +199,11 @@ export async function convertToWmv(
   settings: ConversionSettings,
   onProgress: (progress: ProgressCallback) => void
 ): Promise<ConversionResult> {
-  isCancelled = false;
+  // 変換状態を初期化
+  conversionManager.startConversion();
+
+  // ffmpegの存在と実行権限を確認
+  ensureFFmpegExecutable();
 
   const ffmpegPath = getFFmpegPath();
   const outputPath = generateOutputPath(file.path, outputDir);
@@ -143,11 +225,12 @@ export async function convertToWmv(
   ];
 
   return new Promise((resolve, reject) => {
-    currentProcess = spawn(ffmpegPath, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    const proc = spawn(ffmpegPath, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    conversionManager.setProcess(proc);
 
     let stderrBuffer = '';
 
-    currentProcess.stderr?.on('data', (data) => {
+    proc.stderr?.on('data', (data) => {
       stderrBuffer += data.toString();
 
       // 進捗をパース
@@ -157,10 +240,10 @@ export async function convertToWmv(
       }
     });
 
-    currentProcess.on('close', (code) => {
-      currentProcess = null;
+    proc.on('close', (code) => {
+      conversionManager.endConversion();
 
-      if (isCancelled) {
+      if (conversionManager.cancelled) {
         // キャンセルされた場合、出力ファイルを削除
         if (fs.existsSync(outputPath)) {
           fs.unlinkSync(outputPath);
@@ -184,8 +267,8 @@ export async function convertToWmv(
       }
     });
 
-    currentProcess.on('error', (error) => {
-      currentProcess = null;
+    proc.on('error', (error) => {
+      conversionManager.endConversion();
       reject(error);
     });
   });
@@ -193,8 +276,5 @@ export async function convertToWmv(
 
 // 変換をキャンセル
 export function cancelConversion(): void {
-  isCancelled = true;
-  if (currentProcess) {
-    currentProcess.kill('SIGTERM');
-  }
+  conversionManager.cancel();
 }

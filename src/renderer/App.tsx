@@ -65,9 +65,14 @@ function App() {
     // 最初のファイルの親ディレクトリをデフォルト出力先に設定
     if (filePaths.length > 0 && !outputDir) {
       const firstFilePath = filePaths[0];
-      const dirPath = firstFilePath.substring(0, firstFilePath.lastIndexOf('/')) ||
-                      firstFilePath.substring(0, firstFilePath.lastIndexOf('\\'));
-      setOutputDir(dirPath);
+      // Windows(\)とmacOS/Linux(/)の両方のパス区切りに対応
+      const lastSeparatorIndex = Math.max(
+        firstFilePath.lastIndexOf('/'),
+        firstFilePath.lastIndexOf('\\')
+      );
+      if (lastSeparatorIndex > 0) {
+        setOutputDir(firstFilePath.substring(0, lastSeparatorIndex));
+      }
     }
   }, [outputDir]);
 

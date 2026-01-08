@@ -33,6 +33,10 @@ dmg:
       y: 220
       type: link
       path: /Applications
+    - x: 270
+      y: 350
+      type: file
+      path: build/インストール手順.txt
 
 win:
   icon: build/icon.ico

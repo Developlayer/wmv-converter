@@ -1,0 +1,29 @@
+# 依存関係
+node_modules/
+
+# ビルド出力
+dist/
+release/
+
+# ログ
+*.log
+npm-debug.log*
+
+# OS生成ファイル
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 環境変数
+.env
+.env.local
+.env.*.local
+
+# 一時ファイル
+*.tmp
+*.temp

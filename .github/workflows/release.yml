@@ -1,0 +1,90 @@
+# WMV Converter 自動ビルド・リリース設定
+# 仕様書7.2章に基づく
+
+name: Build and Release
+
+# タグ作成時に自動ビルド（仕様書7.2章）
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        # macOS / Windows 両方でビルド（仕様書7.2章）
+        os: [macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # リポジトリをチェックアウト
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Node.js をセットアップ
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # 依存関係をインストール
+      - name: Install dependencies
+        run: npm ci
+
+      # アプリをビルド
+      - name: Build application
+        run: npm run build
+
+      # macOS用: .dmg を作成（仕様書7.1章）
+      - name: Build for macOS
+        if: matrix.os == 'macos-latest'
+        run: npm run dist:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Windows用: .exe を作成（仕様書7.1章）
+      - name: Build for Windows
+        if: matrix.os == 'windows-latest'
+        run: npm run dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ビルド成果物をアップロード
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}
+          path: |
+            release/*.dmg
+            release/*.exe
+            release/*.zip
+          if-no-files-found: ignore
+
+  # リリースを作成
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      # 成果物をダウンロード
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      # GitHub Releaseを作成してファイルをアップロード
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.exe
+            artifacts/**/*.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

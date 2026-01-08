@@ -26,11 +26,14 @@ mac:
   gatekeeperAssess: false
 
 dmg:
+  window:
+    width: 540
+    height: 450
   contents:
     - x: 130
-      y: 220
+      y: 200
     - x: 410
-      y: 220
+      y: 200
       type: link
       path: /Applications
     - x: 270

@@ -13,6 +13,8 @@ const IPC_CHANNELS = {
   SAVE_SETTINGS: 'save-settings',
   PROBE_FILE: 'probe-file',
   CHECK_FOR_UPDATES: 'check-for-updates',
+  GET_APP_VERSION: 'get-app-version',
+  OPEN_EXTERNAL_URL: 'open-external-url',
 } as const;
 
 // レンダラープロセスに公開するAPI
@@ -55,6 +57,16 @@ const electronAPI = {
   // アップデート確認
   checkForUpdates: (): Promise<unknown> => {
     return ipcRenderer.invoke(IPC_CHANNELS.CHECK_FOR_UPDATES);
+  },
+
+  // アプリバージョン取得
+  getAppVersion: (): Promise<string> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_APP_VERSION);
+  },
+
+  // 外部URLをブラウザで開く
+  openExternalUrl: (url: string): Promise<void> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.OPEN_EXTERNAL_URL, url);
   },
 
   // 進捗イベントリスナー

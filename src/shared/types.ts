@@ -137,7 +137,8 @@ export const IPC_CHANNELS = {
   CONVERSION_ERROR: 'conversion-error',
   GET_SETTINGS: 'get-settings',
   SAVE_SETTINGS: 'save-settings',
-  SHOW_NOTIFICATION: 'show-notification',
   PROBE_FILE: 'probe-file',
   CHECK_FOR_UPDATES: 'check-for-updates',
+  GET_APP_VERSION: 'get-app-version',
+  OPEN_EXTERNAL_URL: 'open-external-url',
 } as const;

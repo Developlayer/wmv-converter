@@ -1,4 +1,4 @@
-import { ipcMain, dialog, Notification, BrowserWindow, shell } from 'electron';
+import { app, ipcMain, dialog, Notification, BrowserWindow, shell } from 'electron';
 import { IPC_CHANNELS, SUPPORTED_EXTENSIONS } from '../shared/types';
 import type { ConversionSettings, FileInfo } from '../shared/types';
 import { convertToWmv, cancelConversion, probeFile } from './ffmpeg';
@@ -118,5 +118,17 @@ export function setupIpcHandlers() {
   // アップデート確認
   ipcMain.handle(IPC_CHANNELS.CHECK_FOR_UPDATES, async () => {
     return await checkForUpdates();
+  });
+
+  // アプリバージョン取得
+  ipcMain.handle(IPC_CHANNELS.GET_APP_VERSION, () => {
+    return app.getVersion();
+  });
+
+  // 外部URLをブラウザで開く
+  ipcMain.handle(IPC_CHANNELS.OPEN_EXTERNAL_URL, async (_event, url: string) => {
+    if (url.startsWith('https://')) {
+      await shell.openExternal(url);
+    }
   });
 }

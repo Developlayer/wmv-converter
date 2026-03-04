@@ -245,11 +245,8 @@ export async function probeFile(filePath: string): Promise<ProbeResult> {
       if (rotation !== 0 && rotation !== 360) {
         warnings.push(`この動画は${rotation}度回転しています。変換後、映像が引き伸ばされる可能性があります`);
       }
-      if (pixelFormat && pixelFormat.includes('10') || pixelFormat.includes('12')) {
+      if (pixelFormat && (pixelFormat.includes('10') || pixelFormat.includes('12'))) {
         warnings.push('HDR/10bit動画です。8bitに変換されます');
-      }
-      if (videoCodec && !stderr.match(/Stream\s+#\d+:\d+.*Video:/)) {
-        warnings.push('映像ストリームが見つかりません');
       }
 
       resolve({

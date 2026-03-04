@@ -13,11 +13,15 @@ function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsModalProps
   const [localSettings, setLocalSettings] = useState<ConversionSettings>(settings);
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'latest' | 'available' | 'error'>('idle');
   const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
+  const [appVersion, setAppVersion] = useState<string>('');
 
   useEffect(() => {
     setLocalSettings(settings);
     setUpdateStatus('idle');
     setUpdateResult(null);
+    if (isOpen) {
+      window.electronAPI.getAppVersion().then(setAppVersion).catch(() => {});
+    }
   }, [settings, isOpen]);
 
   if (!isOpen) return null;
@@ -181,7 +185,7 @@ function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsModalProps
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500">
-                  現在のバージョン: v{updateResult?.currentVersion || '1.0.4'}
+                  現在のバージョン: v{appVersion}
                 </span>
                 <button
                   onClick={handleCheckForUpdates}
@@ -200,7 +204,7 @@ function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsModalProps
                     新しいバージョン v{updateResult.latestVersion} が利用可能です
                   </p>
                   <button
-                    onClick={() => window.open(updateResult.releaseUrl, '_blank')}
+                    onClick={() => window.electronAPI.openExternalUrl(updateResult.releaseUrl)}
                     className="mt-1 text-sm text-blue-500 hover:text-blue-700 underline"
                   >
                     ダウンロードページを開く

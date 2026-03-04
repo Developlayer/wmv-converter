@@ -18,6 +18,8 @@ declare global {
       saveSettings: (settings: ConversionSettings) => Promise<void>;
       probeFile: (filePath: string) => Promise<ProbeResult | null>;
       checkForUpdates: () => Promise<UpdateCheckResult>;
+      getAppVersion: () => Promise<string>;
+      openExternalUrl: (url: string) => Promise<void>;
       onProgress: (callback: (progress: { fileId: string; progress: number }) => void) => () => void;
       onComplete: (callback: (result: { success: boolean; inputPath: string; outputPath?: string }) => void) => () => void;
       onError: (callback: (error: { fileId: string; error: string }) => void) => () => void;

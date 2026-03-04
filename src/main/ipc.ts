@@ -1,8 +1,9 @@
 import { ipcMain, dialog, Notification, BrowserWindow, shell } from 'electron';
 import { IPC_CHANNELS, SUPPORTED_EXTENSIONS } from '../shared/types';
 import type { ConversionSettings, FileInfo } from '../shared/types';
-import { convertToWmv, cancelConversion } from './ffmpeg';
+import { convertToWmv, cancelConversion, probeFile } from './ffmpeg';
 import { getSettings, saveSettings } from './store';
+import { checkForUpdates } from './updater';
 
 // メインウィンドウを取得する（フォーカスに依存しない）
 function getMainWindow(): BrowserWindow | null {
@@ -102,5 +103,20 @@ export function setupIpcHandlers() {
   // 設定保存
   ipcMain.handle(IPC_CHANNELS.SAVE_SETTINGS, async (_event, settings: ConversionSettings) => {
     saveSettings(settings);
+  });
+
+  // ファイルプローブ（事前分析）
+  ipcMain.handle(IPC_CHANNELS.PROBE_FILE, async (_event, filePath: string) => {
+    try {
+      return await probeFile(filePath);
+    } catch (error) {
+      console.error('ファイルプローブに失敗しました:', error);
+      return null;
+    }
+  });
+
+  // アップデート確認
+  ipcMain.handle(IPC_CHANNELS.CHECK_FOR_UPDATES, async () => {
+    return await checkForUpdates();
   });
 }

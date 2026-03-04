@@ -11,6 +11,8 @@ const IPC_CHANNELS = {
   CONVERSION_ERROR: 'conversion-error',
   GET_SETTINGS: 'get-settings',
   SAVE_SETTINGS: 'save-settings',
+  PROBE_FILE: 'probe-file',
+  CHECK_FOR_UPDATES: 'check-for-updates',
 } as const;
 
 // レンダラープロセスに公開するAPI
@@ -43,6 +45,16 @@ const electronAPI = {
   // 設定保存
   saveSettings: (settings: unknown): Promise<void> => {
     return ipcRenderer.invoke(IPC_CHANNELS.SAVE_SETTINGS, settings);
+  },
+
+  // ファイルプローブ（事前分析）
+  probeFile: (filePath: string): Promise<unknown> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.PROBE_FILE, filePath);
+  },
+
+  // アップデート確認
+  checkForUpdates: (): Promise<unknown> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.CHECK_FOR_UPDATES);
   },
 
   // 進捗イベントリスナー

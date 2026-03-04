@@ -19,7 +19,6 @@ export type VideoCodec = 'wmv1' | 'wmv2';
 
 // 解像度プリセット
 export type Resolution =
-  | '3840x2160' // 4K
   | '1920x1080' // 1080p
   | '1280x720'  // 720p
   | '854x480';  // 480p
@@ -39,6 +38,8 @@ export interface FileInfo {
   status: FileStatus;
   progress: number; // 0-100
   error?: string;
+  warnings?: string[];
+  probeResult?: ProbeResult;
 }
 
 // ファイルステータス
@@ -79,7 +80,6 @@ export const VIDEO_CODEC_LABELS: Record<VideoCodec, string> = {
 
 // 解像度ラベル
 export const RESOLUTION_LABELS: Record<Resolution, string> = {
-  '3840x2160': '3840x2160 (4K)',
   '1920x1080': '1920x1080 (1080p)',
   '1280x720': '1280x720 (720p)',
   '854x480': '854x480 (480p)',
@@ -105,6 +105,27 @@ export const AUDIO_BITRATE_LABELS: Record<AudioBitrate, string> = {
 // サポートする入力形式
 export const SUPPORTED_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv'];
 
+// 入力ファイルのプローブ結果
+export interface ProbeResult {
+  hasAudio: boolean;
+  audioChannels: number;
+  rotation: number;
+  videoCodec: string;
+  pixelFormat: string;
+  duration: number | null;
+  width: number;
+  height: number;
+  warnings: string[];
+}
+
+// アップデート確認結果
+export interface UpdateCheckResult {
+  hasUpdate: boolean;
+  currentVersion: string;
+  latestVersion: string;
+  releaseUrl: string;
+}
+
 // IPC チャンネル名
 export const IPC_CHANNELS = {
   SELECT_FILES: 'select-files',
@@ -117,4 +138,6 @@ export const IPC_CHANNELS = {
   GET_SETTINGS: 'get-settings',
   SAVE_SETTINGS: 'save-settings',
   SHOW_NOTIFICATION: 'show-notification',
+  PROBE_FILE: 'probe-file',
+  CHECK_FOR_UPDATES: 'check-for-updates',
 } as const;

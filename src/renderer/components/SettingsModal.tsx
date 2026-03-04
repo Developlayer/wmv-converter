@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { ConversionSettings, VideoCodec, Resolution, FrameRate, AudioBitrate } from '../../shared/types';
+import type { ConversionSettings, VideoCodec, Resolution, FrameRate, AudioBitrate, UpdateCheckResult } from '../../shared/types';
 import { DEFAULT_SETTINGS, VIDEO_CODEC_LABELS, RESOLUTION_LABELS, FRAME_RATE_LABELS, AUDIO_BITRATE_LABELS } from '../../shared/types';
 
 interface SettingsModalProps {
@@ -11,12 +11,31 @@ interface SettingsModalProps {
 
 function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsModalProps) {
   const [localSettings, setLocalSettings] = useState<ConversionSettings>(settings);
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'latest' | 'available' | 'error'>('idle');
+  const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
 
   useEffect(() => {
     setLocalSettings(settings);
+    setUpdateStatus('idle');
+    setUpdateResult(null);
   }, [settings, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleCheckForUpdates = async () => {
+    setUpdateStatus('checking');
+    try {
+      const result = await window.electronAPI.checkForUpdates();
+      setUpdateResult(result);
+      if (result.hasUpdate) {
+        setUpdateStatus('available');
+      } else {
+        setUpdateStatus('latest');
+      }
+    } catch {
+      setUpdateStatus('error');
+    }
+  };
 
   const handleSave = () => {
     onSave(localSettings);
@@ -27,7 +46,7 @@ function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsModalProps
   };
 
   const videoCodecs: VideoCodec[] = ['wmv1', 'wmv2'];
-  const resolutions: Resolution[] = ['3840x2160', '1920x1080', '1280x720', '854x480'];
+  const resolutions: Resolution[] = ['1920x1080', '1280x720', '854x480'];
   const frameRates: FrameRate[] = [23.976, 25, 29.97, 30, 60];
   const audioBitrates: AudioBitrate[] = [64, 128, 192, 256];
 
@@ -157,6 +176,41 @@ function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsModalProps
               />
               <span className="text-sm text-gray-700">変換完了後に元ファイルをゴミ箱に移動</span>
             </label>
+
+            {/* バージョン情報・アップデート確認 */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">
+                  現在のバージョン: v{updateResult?.currentVersion || '1.0.4'}
+                </span>
+                <button
+                  onClick={handleCheckForUpdates}
+                  disabled={updateStatus === 'checking'}
+                  className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updateStatus === 'checking' ? '確認中...' : '更新を確認'}
+                </button>
+              </div>
+              {updateStatus === 'latest' && (
+                <p className="mt-2 text-sm text-green-600">最新バージョンです</p>
+              )}
+              {updateStatus === 'available' && updateResult && (
+                <div className="mt-2">
+                  <p className="text-sm text-blue-600">
+                    新しいバージョン v{updateResult.latestVersion} が利用可能です
+                  </p>
+                  <button
+                    onClick={() => window.open(updateResult.releaseUrl, '_blank')}
+                    className="mt-1 text-sm text-blue-500 hover:text-blue-700 underline"
+                  >
+                    ダウンロードページを開く
+                  </button>
+                </div>
+              )}
+              {updateStatus === 'error' && (
+                <p className="mt-2 text-sm text-red-500">更新の確認に失敗しました</p>
+              )}
+            </div>
           </div>
         </div>
 

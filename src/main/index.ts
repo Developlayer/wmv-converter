@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, dialog, Notification } from 'electron';
+import { app, BrowserWindow, dialog, shell } from 'electron';
 import * as path from 'path';
 import { setupIpcHandlers } from './ipc';
+import { checkForUpdates } from './updater';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -49,6 +50,28 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
   setupIpcHandlers();
+
+  // 起動後にバックグラウンドでアップデートチェック
+  setTimeout(async () => {
+    try {
+      const result = await checkForUpdates();
+      if (result.hasUpdate && mainWindow) {
+        const response = await dialog.showMessageBox(mainWindow, {
+          type: 'info',
+          title: 'アップデートのお知らせ',
+          message: `新しいバージョン v${result.latestVersion} が利用可能です（現在 v${result.currentVersion}）`,
+          buttons: ['ダウンロードページを開く', '後で'],
+          defaultId: 0,
+          cancelId: 1,
+        });
+        if (response.response === 0) {
+          shell.openExternal(result.releaseUrl);
+        }
+      }
+    } catch {
+      // ネットワークエラー等はサイレントに無視
+    }
+  }, 3000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

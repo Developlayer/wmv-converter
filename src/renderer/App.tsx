@@ -4,7 +4,7 @@ import FileQueue from './components/FileQueue';
 import ProgressBar from './components/ProgressBar';
 import SettingsModal from './components/SettingsModal';
 import { useConversion } from './hooks/useConversion';
-import type { ConversionSettings, FileInfo } from '../shared/types';
+import type { ConversionSettings, FileInfo, ProbeResult, UpdateCheckResult } from '../shared/types';
 import { DEFAULT_SETTINGS } from '../shared/types';
 
 declare global {
@@ -16,6 +16,8 @@ declare global {
       cancelConversion: () => Promise<void>;
       getSettings: () => Promise<ConversionSettings>;
       saveSettings: (settings: ConversionSettings) => Promise<void>;
+      probeFile: (filePath: string) => Promise<ProbeResult | null>;
+      checkForUpdates: () => Promise<UpdateCheckResult>;
       onProgress: (callback: (progress: { fileId: string; progress: number }) => void) => () => void;
       onComplete: (callback: (result: { success: boolean; inputPath: string; outputPath?: string }) => void) => () => void;
       onError: (callback: (error: { fileId: string; error: string }) => void) => () => void;
@@ -55,17 +57,42 @@ function App() {
       id: crypto.randomUUID(),
       path: filePath,
       name: filePath.split('/').pop() || filePath.split('\\').pop() || filePath,
-      size: 0, // ファイルサイズは後で取得
+      size: 0,
       status: 'pending',
       progress: 0,
     }));
 
     setFiles((prev) => [...prev, ...newFiles]);
 
+    // 各ファイルをプローブして警告を設定
+    newFiles.forEach(async (file) => {
+      try {
+        const probe = await window.electronAPI.probeFile(file.path);
+        if (probe && probe.warnings && probe.warnings.length > 0) {
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.id === file.id
+                ? { ...f, warnings: probe.warnings, probeResult: probe }
+                : f
+            )
+          );
+        } else if (probe) {
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.id === file.id
+                ? { ...f, probeResult: probe }
+                : f
+            )
+          );
+        }
+      } catch (error) {
+        console.error('ファイルプローブに失敗:', error);
+      }
+    });
+
     // 最初のファイルの親ディレクトリをデフォルト出力先に設定
     if (filePaths.length > 0 && !outputDir) {
       const firstFilePath = filePaths[0];
-      // Windows(\)とmacOS/Linux(/)の両方のパス区切りに対応
       const lastSeparatorIndex = Math.max(
         firstFilePath.lastIndexOf('/'),
         firstFilePath.lastIndexOf('\\')

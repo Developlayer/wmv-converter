@@ -80,6 +80,15 @@ function FileQueue({ files, onRemoveFile, disabled = false, currentFileId }: Fil
               </div>
             )}
 
+            {/* 警告メッセージ */}
+            {file.warnings && file.warnings.length > 0 && file.status !== 'error' && (
+              <div className="mt-1">
+                {file.warnings.map((warning, i) => (
+                  <p key={i} className="text-sm text-yellow-600">⚠ {warning}</p>
+                ))}
+              </div>
+            )}
+
             {/* エラーメッセージ */}
             {file.status === 'error' && file.error && (
               <p className="text-sm text-red-500 mt-1">{file.error}</p>
